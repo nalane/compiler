@@ -1,14 +1,22 @@
 module Types where
 
+import Data.List
+
 data TokenType = IDENTIFIER | INTLITERAL | FLOATLITERAL | STRINGLITERAL | COMMENT | KEYWORD | OPERATOR deriving (Show)
-data Token a = Token a String 
-newtype Id = Token IDENTIFIER
-newtype Keyword = Token KEYWORD
-newtype Operator = Token OPERATOR
-newtype Str = Token STRINGLITERAL
-newtype IntLit = Token INTLITERAL
-newtype FloatLit = Token FLOATLITERAL
-newtype StringLit = Token STRINGLITERAL
+data ParseTree = ParseNode [ParseTree] | ParseToken TokenType String
+
+instance Show ParseTree where
+    show (ParseNode l) = concatMap show l
+    show (ParseToken t s) = "Token Type: " ++ show t ++ "\nValue: " ++ s ++ "\n"
+
+--data Token = Token TokenType String 
+{-
+newtype Id = ParseToken IDENTIFIER
+newtype Keyword = ParseToken KEYWORD
+newtype Operator = ParseToken OPERATOR
+newtype IntLit = ParseToken INTLITERAL
+newtype FloatLit = ParseToken FLOATLITERAL
+newtype StringLit = ParseToken STRINGLITERAL
 
 data VarType = VarTypeFloat Keyword | VarTypeInt Keyword
 data AnyType = AnyTypeVarType VarType | AnyTypeVoid Keyword
@@ -58,3 +66,4 @@ data FuncDeclarations = FuncDeclarations FuncDecl FuncDeclarations | FuncDeclara
 
 data PgmBody = PgmBody Decl FuncDeclarations
 data Program = Program Keyword Id Keyword PgmBody Keyword
+-}

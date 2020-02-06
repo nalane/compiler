@@ -1,11 +1,9 @@
 module Main where
 
 import Lib
-import Text.Parsec
-import Text.Parsec.Char
-import qualified Data.Text as T
+import System.Environment
 
 main :: IO ()
 main = do
-    input <- T.pack <$> getLine
-    print $ parse r' "" input
+    [file] <- getArgs
+    parseProgram file >>= print
