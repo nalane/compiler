@@ -186,43 +186,21 @@ mulOp = do
     o <- string "*" <|> string "/"
     return $ ParseToken OPERATOR o
 
-factorPrefix :: Parser ParseTree
-factorPrefix = try parseFactorPrefix <|> return (ParseNode []) where
-    parseFactorPrefix = do
-        pre <- factorPrefix
+factor :: Parser ParseTree
+factor = worker $ ParseNode [] where
+    worker tree = do
         spaces
         post <- postfixExpr
         spaces
-        m <- mulOp
-        return $ ParseNode [pre, post, m]
-
-factor :: Parser ParseTree
-factor = do
-    post <- postfixExpr
-    spaces
-    worker post where
-        worker tree = try parseFactor <|> return tree where
-            parseFactor = do
-                m <- mulOp
-                spaces
-                post2 <- postfixExpr
-                spaces
-                worker $ ParseNode [tree, m, post2]
+        try (do
+            m <- mulOp
+            spaces
+            worker $ ParseNode [tree, post, m]) <|> return (ParseNode [tree, post])
 
 addOp :: Parser ParseTree
 addOp = do
     o <- string "+" <|> string "-"
     return $ ParseToken OPERATOR o
-
-exprPrefix :: Parser ParseTree
-exprPrefix = try parseExprPrefix <|> return (ParseNode []) where
-    parseExprPrefix = do
-        p <- exprPrefix
-        spaces
-        f <- factor
-        spaces
-        a <- addOp
-        return $ ParseNode [p, f, a]
 
 expr' :: Parser ParseTree
 expr' = do
@@ -232,17 +210,15 @@ expr' = do
     return e
 
 expr :: Parser ParseTree
-expr = do
-    f <- factor
-    spaces
-    worker f where
-        worker tree = try parseExpr <|> return tree where
-            parseExpr = do
-                a <- addOp
-                spaces
-                f2 <- factor
-                spaces
-                worker $ ParseNode [tree, a, f2]
+expr = worker $ ParseNode [] where
+    worker tree = do
+        spaces
+        f <- factor
+        spaces
+        try (do
+            a <- addOp
+            spaces
+            worker $ ParseNode [tree, f, a]) <|> return (ParseNode [tree, f])
 
 assignExpr :: Parser ParseTree
 assignExpr = do
