@@ -7,6 +7,14 @@ import Text.Parsec
 import Text.Parsec.Text
 import Types
 
+ignore' :: Parser ()
+ignore' = do
+    spaces
+    try (do
+        string "--"
+        many $ noneOf "\n"
+        ignore') <|> return ()
+
 parens' :: Parser ParseTree -> Parser [ParseTree]
 parens' middle = do
     spaces
@@ -87,13 +95,15 @@ varDecl = do
 decl :: Parser ParseTree
 decl = try parseStringDecl <|> try parseVarDecl <|> return (ParseNode []) where
     parseStringDecl = do
+        ignore'
         s <- stringDecl
-        spaces
+        ignore'
         d <- decl
         return $ ParseNode [s, d]
     parseVarDecl = do
+        ignore'
         v <- varDecl
-        spaces
+        ignore'
         d <- decl
         return $ ParseNode [v, d]
 
@@ -137,7 +147,7 @@ floatLiteral = do
     return $ ParseToken FLOATLITERAL (first ++ "." ++ second)
 
 primary :: Parser ParseTree
-primary = try parseExpr <|> try id' <|> try intLiteral <|> floatLiteral where
+primary = try parseExpr <|> try id' <|> try floatLiteral <|> intLiteral where
     parseExpr = do
         l <- parens' expr
         return $ ParseNode l
@@ -198,10 +208,6 @@ factor = do
                 post2 <- postfixExpr
                 spaces
                 worker $ ParseNode [tree, m, post2]
-    {-pre <- factorPrefix
-    spaces
-    post <- postfixExpr
-    return $ ParseNode [pre, post]-}
 
 addOp :: Parser ParseTree
 addOp = do
@@ -277,7 +283,7 @@ baseStmt = try assignStmt <|> try readStmt <|> try writeStmt <|> returnStmt
 
 compop :: Parser ParseTree
 compop = do
-    c <- string "<" <|> string ">" <|> string "=" <|> string "!=" <|> string "<=" <|> string ">="
+    c <- try (string "<=") <|> try (string "!=") <|> try (string ">=") <|> try (string "<") <|> try (string ">") <|> string "=" 
     return $ ParseToken OPERATOR c
 
 cond :: Parser ParseTree
@@ -292,7 +298,7 @@ cond = do
 decl' :: Parser [ParseTree]
 decl' = do
     d <- decl
-    spaces
+    ignore'
     s <- stmtList
     return [d, s]
 
@@ -333,8 +339,9 @@ stmt = try baseStmt <|> try ifStmt <|> whileStmt
 stmtList :: Parser ParseTree
 stmtList = try parseStmtList <|> return (ParseNode []) where
     parseStmtList = do
+        ignore'
         s <- stmt
-        spaces
+        ignore'
         rest <- stmtList
         return $ ParseNode [s, rest]
 
@@ -343,7 +350,7 @@ funcBody = ParseNode <$> decl'
 
 funcDecl :: Parser ParseTree
 funcDecl = do
-    spaces
+    ignore'
     string "FUNCTION"
     spaces
     t <- anyType
@@ -351,7 +358,7 @@ funcDecl = do
     char '('
     ps <- paramDeclList
     char ')'
-    spaces
+    ignore'
     string "BEGIN"
     spaces
     f <- funcBody
@@ -363,28 +370,30 @@ funcDeclarations :: Parser ParseTree
 funcDeclarations = try parseFuncDeclarations <|> return (ParseNode []) where
     parseFuncDeclarations = do
         f <- funcDecl
-        spaces
+        ignore'
         d <- funcDeclarations
         return $ ParseNode [f, d]
 
 pgmBody :: Parser ParseTree
 pgmBody = do
     d <- decl
-    spaces
+    ignore'
     f <- funcDeclarations
     return $ ParseNode [d, f]
 
 program :: Parser ParseTree
 program = do
-    spaces
+    ignore'
     string "PROGRAM"
+    ignore'
     name <- id'
+    ignore'
     string "BEGIN"
-    spaces
+    ignore'
     p <- pgmBody
-    spaces
+    ignore'
     string "END"
-    spaces
+    ignore'
     return $ ParseNode [ParseToken KEYWORD "PROGRAM", name, ParseToken KEYWORD "BEGIN", p, ParseToken KEYWORD "END"]
 
 parseProgram :: String -> IO (Either ParseError ParseTree)

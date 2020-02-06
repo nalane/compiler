@@ -6,4 +6,7 @@ import System.Environment
 main :: IO ()
 main = do
     [file] <- getArgs
-    parseProgram file >>= print
+    parseTree <- parseProgram file
+    case parseTree of
+        Left e -> print e
+        Right t -> print t
