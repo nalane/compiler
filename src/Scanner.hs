@@ -36,19 +36,23 @@ tokenDef =
 
 lexer = Token.makeTokenParser tokenDef
 
-identifier = Token.identifier lexer
-intLiteral = Token.natural lexer
-floatLiteral = Token.float lexer
 keyword = foldr ((<|>) . (\ x -> try (Token.reserved lexer x >> return x))) (Token.reserved lexer (head keywords) >> return (head keywords)) $ tail keywords
 operator = foldr ((<|>) . (\ x -> try (Token.reservedOp lexer x >> return x))) (Token.reservedOp lexer (head operators) >> return (head operators)) $ tail operators
+identifier = Token.identifier lexer
+intLiteral = Token.natural lexer
+floatLiteral = do
+    first <- many digit
+    char '.'
+    second <- many1 digit
+    return (first ++ "." ++ second)
 stringLiteral = do
     char '"'
     x <- many $ noneOf "\""
     char '"'
     return ("\"" ++ x ++ "\"")
 
-tokenTypes = [KEYWORD, IDENTIFIER, OPERATOR, FLOATLITERAL, INTLITERAL, STRINGLITERAL]
-tokenParsers = [keyword, identifier, operator, show <$> floatLiteral, show <$> intLiteral, stringLiteral]
+tokenTypes = [KEYWORD, OPERATOR, IDENTIFIER, FLOATLITERAL, INTLITERAL, STRINGLITERAL]
+tokenParsers = [keyword, operator, identifier, floatLiteral, show <$> intLiteral, stringLiteral]
 tok = foldr (<|>) (fail "Could not identify next token") $ zipWith (\t p -> try (ParseToken t <$> p)) tokenTypes tokenParsers
 
 parseTokens :: String -> IO (Either ParseError [ParseTree])
