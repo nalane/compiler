@@ -10,4 +10,4 @@ main = do
     parseTree <- parseTokens file
     case parseTree of
         Left e -> print e
-        Right t -> putStr $ intercalate "\n" $ map show t
+        Right t -> putStrLn $ intercalate "\n" $ map show t

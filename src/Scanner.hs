@@ -17,8 +17,8 @@ keywords = [ "PROGRAM", "BEGIN", "END", "FUNCTION", "READ"
            , "INT", "VOID", "STRING", "FLOAT"
            ]
 
-operators = [ ":=", "+", "-", "*", "/", "=", "!=", "<"
-            , ">", "(", ")", ";", ",", "<=", ">="
+operators = [ ":=", "+", "-", "*", "/", "=", "!=", "<=", ">="
+            , "<", ">", "(", ")", ";", ","
             ]
 
 tokenDef =
