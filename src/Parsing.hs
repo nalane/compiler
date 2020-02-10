@@ -7,6 +7,8 @@ import Text.Parsec
 import Text.Parsec.Text
 import Types
 
+-- These primed functions are helper functions
+
 ignore' :: Parser ()
 ignore' = do
     spaces
@@ -26,18 +28,43 @@ parens' middle = do
     spaces
     return [ParseToken OPERATOR "(", m, ParseToken OPERATOR ")"]
 
+assign' :: Parser [ParseTree]
+assign' = do
+    name <- id
+    string ":="
+    spaces
+    return [name, ParseToken OPERATOR ":="]
+
+expr' :: Parser ParseTree
+expr' = do
+    spaces
+    e <- expr
+    spaces
+    return e
+
+decl' :: Parser [ParseTree]
+decl' = do
+    d <- decl
+    ignore'
+    s <- stmtList
+    return [d, s]
+
+ifWhile' :: Parser [ParseTree]
+ifWhile' = do
+    l <- parens' cond
+    ds <- decl'
+    spaces
+    return (l ++ ds)
+
+------------------------------------------------
+
 id :: Parser ParseTree
 id = do
+    spaces
     firstLetter <- letter
     rest <- many (letter <|> digit)
+    spaces
     return $ ParseToken IDENTIFIER (firstLetter:rest)
-
-id' :: Parser ParseTree
-id' = do
-    spaces
-    name <- id
-    spaces
-    return name
 
 str :: Parser ParseTree
 str = do
@@ -45,13 +72,6 @@ str = do
     lit <- many $ noneOf "\""
     char '"'
     return $ ParseToken STRINGLITERAL ("\"" ++ lit ++ "\"")
-
-assign' :: Parser [ParseTree]
-assign' = do
-    name <- id'
-    string ":="
-    spaces
-    return [name, ParseToken OPERATOR ":="]
 
 stringDecl :: Parser ParseTree
 stringDecl = do
@@ -72,13 +92,13 @@ idTail :: Parser ParseTree
 idTail = try parseIdTail <|> return (ParseNode []) where
     parseIdTail = do
         char ','
-        name <- id'
+        name <- id
         rest <- idTail
         return $ ParseNode [ParseToken OPERATOR ",", name, rest]
 
 idList :: Parser ParseTree
 idList = do
-    name <- id'
+    name <- id
     rest <- idTail
     return $ ParseNode [name, rest]
 
@@ -115,7 +135,7 @@ anyType = try varType <|> (do
 paramDecl :: Parser ParseTree
 paramDecl = do
     t <- varType
-    name <- id'
+    name <- id
     return $ ParseNode [t, name]
 
 paramDeclTail :: Parser ParseTree
@@ -147,7 +167,7 @@ floatLiteral = do
     return $ ParseToken FLOATLITERAL (first ++ "." ++ second)
 
 primary :: Parser ParseTree
-primary = try parseExpr <|> try id' <|> try floatLiteral <|> intLiteral where
+primary = try parseExpr <|> try id <|> try floatLiteral <|> intLiteral where
     parseExpr = do
         l <- parens' expr
         return $ ParseNode l
@@ -170,7 +190,7 @@ exprList = try parseExprList <|> return (ParseNode []) where
 
 callExpr :: Parser ParseTree
 callExpr = do
-    name <- id'
+    name <- id
     char '('
     spaces
     l <- exprList
@@ -201,13 +221,6 @@ addOp :: Parser ParseTree
 addOp = do
     o <- string "+" <|> string "-"
     return $ ParseToken OPERATOR o
-
-expr' :: Parser ParseTree
-expr' = do
-    spaces
-    e <- expr
-    spaces
-    return e
 
 expr :: Parser ParseTree
 expr = worker $ ParseNode [] where
@@ -271,13 +284,6 @@ cond = do
     e2 <- expr
     return $ ParseNode [e1, c, e2]
 
-decl' :: Parser [ParseTree]
-decl' = do
-    d <- decl
-    ignore'
-    s <- stmtList
-    return [d, s]
-
 elsePart :: Parser ParseTree
 elsePart = try parseElsePart <|> return (ParseNode []) where
     parseElsePart = do
@@ -285,13 +291,6 @@ elsePart = try parseElsePart <|> return (ParseNode []) where
         spaces
         ds <- decl'
         return $ ParseNode (ParseToken KEYWORD "ELSE" : ds)
-
-ifWhile' :: Parser [ParseTree]
-ifWhile' = do
-    l <- parens' cond
-    ds <- decl'
-    spaces
-    return (l ++ ds)
 
 ifStmt :: Parser ParseTree
 ifStmt = do
@@ -330,7 +329,7 @@ funcDecl = do
     string "FUNCTION"
     spaces
     t <- anyType
-    name <- id'
+    name <- id
     char '('
     ps <- paramDeclList
     char ')'
@@ -362,7 +361,7 @@ program = do
     ignore'
     string "PROGRAM"
     ignore'
-    name <- id'
+    name <- id
     ignore'
     string "BEGIN"
     ignore'

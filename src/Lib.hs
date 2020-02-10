@@ -1,5 +1,5 @@
 module Lib (
-    module Parsing
+    parseTokens
 ) where
 
-import Parsing
+import Scanner
