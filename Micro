@@ -1,0 +1,3 @@
+#!/bin/bash
+command -v stack > /dev/null 2>&1 || { echo >&2 "Stack needs to be installed for this software to work. For instructions on how to install, see https://docs.haskellstack.org/en/stable/install_and_upgrade/"; exit 1; }
+stack run -- $1
