@@ -36,8 +36,8 @@ tokenDef =
 
 lexer = Token.makeTokenParser tokenDef
 
-keyword = foldr ((<|>) . (\ x -> try (Token.reserved lexer x >> return x))) (Token.reserved lexer (head keywords) >> return (head keywords)) $ tail keywords
-operator = foldr ((<|>) . (\ x -> try (Token.reservedOp lexer x >> return x))) (Token.reservedOp lexer (head operators) >> return (head operators)) $ tail operators
+keyword = foldr ((<|>) . (\ x -> try (Token.reserved lexer x >> return x))) (fail "Could not match any keyword") keywords
+operator = foldr ((<|>) . (\ x -> try (Token.reservedOp lexer x >> return x))) (fail "Could not match any operators") operators
 identifier = Token.identifier lexer
 intLiteral = Token.natural lexer
 floatLiteral = do
