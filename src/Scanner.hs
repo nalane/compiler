@@ -81,7 +81,7 @@ tok = foldr (<|>) (fail "Could not identify next token") tokGens where
 -- Read the complete contents of the file, then pass it into the parser.
 -- At this stage, the parser just gives us a list of tokens until we 
 -- reach the end of the file.
-parseTokens :: String -> IO (Either ParseError [ParseTree])
+parseTokens :: String -> IO (Either ParseError [ParseToken])
 parseTokens filename = parse (do
     toks <- many tok
     eof
