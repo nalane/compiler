@@ -12,9 +12,9 @@ BEGIN
 		k := 0;
 		result := 0;
 		
-		WHILE (i <= 99)
+		WHILE (i < 100)
 		     i := i + 1;
-		     WHILE (j <= 99)
+		     WHILE (j < 100)
 		          j := j + 1;
 		          WHILE (k < 100)
 		               k := k + 1;

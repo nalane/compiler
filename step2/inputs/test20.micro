@@ -7,12 +7,15 @@ BEGIN
 
 	FUNCTION INT F (INT n)
 	BEGIN
-
+		IF (n = 0)
+			RETURN 0;
+		ENDIF
 		IF (n > 2)
-		     RETURN F(n-1)+F(n-2);
+			RETURN F(n-1)+F(n-2);
 		ELSE
 			RETURN 1;
-	    ENDIF
+		ENDIF
+
 	END
 	
 	

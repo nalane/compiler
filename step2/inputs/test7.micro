@@ -1,0 +1,39 @@
+PROGRAM fibonacci
+BEGIN
+
+	STRING dummy := "abcde";
+
+	INT i,result; 
+
+
+	FUNCTION INT F (INT n)
+	BEGIN
+		IF(n = 0)
+			RETURN 0;
+		ENDIF
+		IF (n > 2)
+			RETURN F(n-1)+F(n-2);
+		ELSE
+			RETURN 1;
+		ENDIF
+	END
+	
+	
+	FUNCTION VOID main ()
+	BEGIN
+		
+    INT i, end, result;
+		READ(end);
+
+	i := 0;
+ 	WHILE (i != end)
+		result := F(i);
+		WRITE (i);
+		WRITE (result);
+		i := i + 1;	
+	ENDWHILE
+
+
+	END
+
+END	
