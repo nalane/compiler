@@ -13,5 +13,5 @@ main = do
 
     -- If Left, error. If Right, success
     case parseTree of
-        Left _ -> putStrLn "Not Accepted"
+        Left _ -> putStrLn "Not accepted"
         Right _ -> putStrLn "Accepted"

@@ -8,271 +8,215 @@ import Text.Parsec.Text
 import Types
 import Scanner
 
-parens' :: Parser ParseTree -> Parser [ParseTree]
-parens' middle = do
-    left <- operator "("
-    m <- middle
-    right <- operator ")"
-    return [left, m, right]
-
-assign' :: Parser [ParseTree]
-assign' = do
-    name <- identifier
-    op <- operator ":="
-    return [name, op]
-
-decl' :: Parser [ParseTree]
-decl' = do
-    d <- decl
-    s <- stmtList
-    return [d, s]
-
-ifWhile' :: Parser [ParseTree]
-ifWhile' = do
-    l <- parens' cond
-    ds <- decl'
-    return (l ++ ds)
-
-------------------------------
-
-stringDecl :: Parser ParseTree
+stringDecl :: Parser Declaration
 stringDecl = do
-    key <- keyword "STRING"
-    a <- assign'
+    keyword "STRING"
+    name <- identifier
+    operator ":="
     lit <- stringLiteral
-    semi <- operator ";"
-    return $ ParseNode (key:(a ++ [lit, semi]))
+    operator ";"
+    return $ StringDeclaration name lit
 
-varType :: Parser ParseTree
+varType :: Parser ParseToken
 varType = try (keyword "FLOAT") <|> keyword "INT"
 
-idTail :: Parser ParseTree
-idTail = try parseIdTail <|> return (ParseNode []) where
-    parseIdTail = do
-        comma <- operator ","
-        name <- identifier
-        rest <- idTail
-        return $ ParseNode [comma, name, rest]
+idList :: Parser [ParseToken]
+idList = commaSep identifier
 
-idList :: Parser ParseTree
-idList = do
-    name <- identifier
-    rest <- idTail
-    return $ ParseNode [name, rest]
-
-varDecl :: Parser ParseTree
+varDecl :: Parser [Declaration]
 varDecl = do
-    t <- varType
+    (ParseToken _ t) <- varType
     l <- idList
-    op <- operator ";"
-    return $ ParseNode [t, l, op]
+    operator ";"
+    return $ case t of
+        "FLOAT" -> map FloatDeclaration l
+        "INT" -> map IntDeclaration l
 
-decl :: Parser ParseTree
-decl = try parseStringDecl <|> try parseVarDecl <|> return (ParseNode []) where
+decl :: Parser [Declaration]
+decl = try parseStringDecl <|> try parseVarDecl <|> return [] where
     parseStringDecl = do
         s <- stringDecl
         d <- decl
-        return $ ParseNode [s, d]
+        return (s:d)
     parseVarDecl = do
         v <- varDecl
         d <- decl
-        return $ ParseNode [v, d]
+        return (v ++ d)
 
-anyType :: Parser ParseTree
+anyType :: Parser ParseToken
 anyType = try varType <|> keyword "VOID"
 
-paramDecl :: Parser ParseTree
+paramDecl :: Parser Declaration
 paramDecl = do
-    t <- varType
+    (ParseToken _ t) <- varType
     name <- identifier
-    return $ ParseNode [t, name]
+    return $ case t of
+        "FLOAT" -> FloatDeclaration name
+        "INT" -> IntDeclaration name
 
-paramDeclTail :: Parser ParseTree
-paramDeclTail = try parseParamDeclTail <|> return (ParseNode []) where
-    parseParamDeclTail = do
-        op <- operator ","
-        p <- paramDecl
-        rest <- paramDeclTail
-        return $ ParseNode [op, p, rest]
+paramDeclList :: Parser [Declaration]
+paramDeclList = commaSep paramDecl
 
-paramDeclList :: Parser ParseTree
-paramDeclList = try parseParamDeclList <|> return (ParseNode []) where
-    parseParamDeclList = do
-        p <- paramDecl
-        rest <- paramDeclTail
-        return $ ParseNode [p, rest]
+primary :: Parser PostFix
+primary = 
+    try (ParenExpr <$> parens expr) <|> 
+    try (Identifier <$> identifier) <|> 
+    try (FloatLiteral <$> floatLiteral) <|> 
+    (IntLiteral <$> intLiteral)
 
-primary :: Parser ParseTree
-primary = try parseExpr <|> try identifier <|> try floatLiteral <|> intLiteral where
-    parseExpr = ParseNode <$> parens' expr
+exprList :: Parser [Expression]
+exprList = commaSep expr
 
-exprListTail :: Parser ParseTree
-exprListTail = try parseExprListTail <|> return (ParseNode []) where
-    parseExprListTail = do
-        op <- operator ","
-        e <- expr
-        rest <- exprListTail
-        return $ ParseNode [op, e, rest]
-
-exprList :: Parser ParseTree
-exprList = try parseExprList <|> return (ParseNode []) where
-    parseExprList = do
-        e <- expr
-        rest <- exprListTail
-        return $ ParseNode [e, rest]
-
-callExpr :: Parser ParseTree
+callExpr :: Parser PostFix
 callExpr = do
     name <- identifier
-    l <- parens' exprList
-    return $ ParseNode (name:l)
+    l <- parens exprList
+    return $ CallExpr name l
 
-postfixExpr :: Parser ParseTree
+postfixExpr :: Parser PostFix
 postfixExpr = try callExpr <|> primary
 
-mulOp :: Parser ParseTree
-mulOp = try (operator "*") <|> operator "/"
+mulOp :: Parser MulOp
+mulOp = try (operator "*" >> return Times) <|> (operator "/" >> return Div)
 
-factor :: Parser ParseTree
-factor = worker $ ParseNode [] where
-    worker tree = do
-        post <- postfixExpr
-        try (do
+factor :: Parser Factor
+factor = do
+    post <- postfixExpr
+    worker $ FactLeaf post where
+        worker tree = try (do
             m <- mulOp
-            worker $ ParseNode [tree, post, m]) <|> return (ParseNode [tree, post])
+            FactNode tree m <$> factor) <|> return tree
 
-addOp :: Parser ParseTree
-addOp = try (operator "+") <|> operator "-"
+addOp :: Parser AddOp
+addOp = try (operator "+" >> return Plus) <|> (operator "-" >> return Minus) 
 
-expr :: Parser ParseTree
-expr = worker $ ParseNode [] where
-    worker tree = do
-        f <- factor
-        try (do
+expr :: Parser Expression
+expr = do
+    f <- factor
+    worker $ ExprLeaf f where
+        worker tree = try (do
             a <- addOp
-            worker $ ParseNode [tree, f, a]) <|> return (ParseNode [tree, f])
+            ExprNode tree a <$> expr) <|> return tree
 
-assignExpr :: Parser ParseTree
+assignExpr :: Parser Statement
 assignExpr = do
-    a <- assign'
-    e <- expr
-    return $ ParseNode (a ++ [e])
+    name <- identifier
+    operator ":="
+    AssignStatement name <$> expr
 
-assignStmt :: Parser ParseTree
+assignStmt :: Parser Statement
 assignStmt = do
     e <- assignExpr
-    semi <- operator ";"
-    return $ ParseNode [e, semi]
+    operator ";"
+    return e
 
-readStmt :: Parser ParseTree
+readStmt :: Parser Statement
 readStmt = do
-    read <- keyword "READ"
-    l <- parens' idList
-    semi <- operator ";"
-    return $ ParseNode (read:(l ++ [semi]))
+    keyword "READ"
+    l <- parens idList
+    operator ";"
+    return $ ReadStatement l
 
-writeStmt :: Parser ParseTree
+writeStmt :: Parser Statement
 writeStmt = do
-    write <- keyword "WRITE"
-    l <- parens' idList
-    semi <- operator ";"
-    return $ ParseNode (write:(l ++ [semi]))
+    keyword "WRITE"
+    l <- parens idList
+    operator ";"
+    return $ WriteStatement l
 
-returnStmt :: Parser ParseTree
+returnStmt :: Parser Statement
 returnStmt = do
-    ret <- keyword "RETURN"
+    keyword "RETURN"
     e <- expr
-    semi <- operator ";"
-    return $ ParseNode [ret, e, semi]
+    operator ";"
+    return $ ReturnStatement e
 
-baseStmt :: Parser ParseTree
+baseStmt :: Parser Statement
 baseStmt = try assignStmt <|> try readStmt <|> try writeStmt <|> returnStmt
 
-compop :: Parser ParseTree
-compop = 
-    try (operator "<=") <|> 
-    try (operator "!=") <|>
-    try (operator ">=") <|>
-    try (operator "<") <|>
-    try (operator ">") <|> 
-    operator "=" 
+compop :: Parser CompOp
+compop = choice $ zipWith (\o t -> try (operator o) >> return t) ops types where
+    ops = ["<=", "!=", ">=", "<", ">", "="]
+    types = [LessEqual, NotEqual, GreatEqual, Less, Great, Equal]
 
-cond :: Parser ParseTree
+cond :: Parser Condition
 cond = do
     e1 <- expr
     c <- compop
-    e2 <- expr
-    return $ ParseNode [e1, c, e2]
+    Condition e1 c <$> expr
 
-elsePart :: Parser ParseTree
-elsePart = try parseElsePart <|> return (ParseNode []) where
+elsePart :: Parser (Maybe ElseStatement)
+elsePart = try parseElsePart <|> return Nothing where
     parseElsePart = do
         key <- keyword "ELSE"
-        ds <- decl'
-        return $ ParseNode (key : ds)
+        d <- decl
+        Just . ElseStatement d <$> stmtList
 
-ifStmt :: Parser ParseTree
+ifStmt :: Parser Statement
 ifStmt = do
-    i <- keyword "IF"
-    iw <- ifWhile'
+    keyword "IF"
+    c <- parens cond
+    d <- decl
+    s <- stmtList
     e <- elsePart
-    end <- keyword "ENDIF"
-    return $ ParseNode (i:(iw ++ [e, end]))
+    keyword "ENDIF"
+    return $ IfStatement c d s e
 
-whileStmt :: Parser ParseTree
+whileStmt :: Parser Statement
 whileStmt = do
-    w <- keyword "WHILE"
-    iw <- ifWhile'
-    end <- keyword "ENDWHILE"
-    return $ ParseNode (w:(iw ++ [end]))
+    keyword "WHILE"
+    c <- parens cond
+    d <- decl
+    s <- stmtList
+    keyword "ENDWHILE"
+    return $ WhileStatement c d s
 
-stmt :: Parser ParseTree
+stmt :: Parser Statement
 stmt = try baseStmt <|> try ifStmt <|> whileStmt
 
-stmtList :: Parser ParseTree
-stmtList = try parseStmtList <|> return (ParseNode []) where
+stmtList :: Parser [Statement]
+stmtList = try parseStmtList <|> return [] where
     parseStmtList = do
         s <- stmt
         rest <- stmtList
-        return $ ParseNode [s, rest]
+        return (s:rest)
 
-funcBody :: Parser ParseTree
-funcBody = ParseNode <$> decl'
+funcBody :: Parser FuncBody
+funcBody = do
+    d <- decl
+    FuncBody d <$> stmtList
 
-funcDecl :: Parser ParseTree
+funcDecl :: Parser FuncDeclaration
 funcDecl = do
-    func <- keyword "FUNCTION"
+    keyword "FUNCTION"
     t <- anyType
     name <- identifier
-    left <- operator "("
-    ps <- paramDeclList
-    right <- operator ")"
-    begin <- keyword "BEGIN"
+    ps <- parens paramDeclList
+    keyword "BEGIN"
     f <- funcBody
-    end <- keyword "END"
-    return $ ParseNode [func, t, name, left, ps, right, begin, f, end]
+    keyword "END"
+    return $ FuncDeclaration t name ps f
 
-funcDeclarations :: Parser ParseTree
-funcDeclarations = try parseFuncDeclarations <|> return (ParseNode []) where
+funcDeclarations :: Parser [FuncDeclaration]
+funcDeclarations = try parseFuncDeclarations <|> return [] where
     parseFuncDeclarations = do
         f <- funcDecl
         d <- funcDeclarations
-        return $ ParseNode [f, d]
+        return (f:d)
 
-pgmBody :: Parser ParseTree
+pgmBody :: Parser ProgramBody
 pgmBody = do
     d <- decl
-    f <- funcDeclarations
-    return $ ParseNode [d, f]
+    ProgramBody d <$> funcDeclarations
 
-program :: Parser ParseTree
+program :: Parser Program
 program = do
-    prog <- keyword "PROGRAM"
+    keyword "PROGRAM"
     name <- identifier
-    begin <- keyword "BEGIN"
+    keyword "BEGIN"
     p <- pgmBody
-    end <- keyword "END"
-    return $ ParseNode [prog, name, begin, p, end]
+    keyword "END"
+    return $ Program name p
 
-parseProgram :: String -> IO (Either ParseError ParseTree)
+parseProgram :: String -> IO (Either ParseError Program)
 parseProgram = parseFromFile program
