@@ -12,9 +12,9 @@ BEGIN
      i := 10;
      j := 10;
 	
-     WHILE (b <= (i - 1))
+     WHILE (b < i)
           b := b + 1;
-          WHILE (a <= (j - 1))
+          WHILE (a < j)
                a := a + 1;
           ENDWHILE
      ENDWHILE

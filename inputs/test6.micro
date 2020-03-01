@@ -9,13 +9,15 @@ BEGIN
 	END
   FUNCTION INT main()
 	BEGIN
-	--This line should cause parse error
-	IF (a + b)
-		
+	IF (a = b)
 		h:=0;
 	ELSE
-	
-		j:=1;
+
+	     WHILE (j<=10)
+		     a := j;
+		     j := j + 1;		
+	     ENDWHILE
+
 	ENDIF
 	RETURN a+b;
 	END

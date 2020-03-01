@@ -2,3 +2,4 @@
 compiler.cabal
 *~
 .vscode/
+.DS_Store
