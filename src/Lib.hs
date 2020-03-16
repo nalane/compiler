@@ -1,5 +1,6 @@
 module Lib (
-    parseProgram
+    parseProgram, runCompiler
 ) where
 
 import Parser
+import Compiler

@@ -5,6 +5,7 @@ module Parser (
 import Prelude hiding (id)
 import Text.Parsec
 import Text.Parsec.Text
+import qualified Data.Text.IO as T
 import Types
 import Scanner
 
@@ -219,4 +220,6 @@ program = do
     return $ Program name p
 
 parseProgram :: String -> IO (Either ParseError Program)
-parseProgram = parseFromFile program
+parseProgram filename = do
+    t <- T.readFile filename
+    return $ parse program filename t
