@@ -1,5 +1,4 @@
 .stack-work/
-compiler.cabal
 *~
 .vscode/
 .DS_Store
