@@ -159,6 +159,7 @@ instance Compilable FuncDeclaration where
         addTable name
         mapM_ compile decls
         compile funcBody
+        removeTable
 
 instance Compilable ProgramBody where
     compile (ProgramBody decls funcDecls) = do
