@@ -90,6 +90,12 @@ addTable name = Compiler $ \s ->
         newStack = VarTable name [] : tables
     in Right (set tableStack newStack s, ())
 
+removeTable :: Compiler ()
+removeTable = Compiler $ \s ->
+    let tables = s^.tableStack
+        newTables = tail s
+    in Right (set tableStack newStack s, ())
+
 addBlock :: Compiler ()
 addBlock = Compiler $ \s ->
     Right (over tableCount (+1) s, ())
@@ -106,6 +112,7 @@ writeTable = do
     addOutput $ show $ head tables
 
 
+
 compileWriteHelper :: Compilable a => [a] -> Compiler ()
 compileWriteHelper l = do
     mapM_ compile l
@@ -119,6 +126,8 @@ blockHelper decls stmts = do
     compileWriteHelper decls
 
     mapM_ compile stmts
+
+    removeTable
 
 class Compilable a where
     compile :: a -> Compiler ()
