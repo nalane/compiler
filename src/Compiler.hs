@@ -93,7 +93,7 @@ addTable name = Compiler $ \s ->
 removeTable :: Compiler ()
 removeTable = Compiler $ \s ->
     let tables = s^.tableStack
-        newTables = tail s
+        newStack = tail tables
     in Right (set tableStack newStack s, ())
 
 addBlock :: Compiler ()
