@@ -4,7 +4,6 @@ import Lib
 import Data.List
 import System.Environment
 import System.IO
-import Data.Text
 
 main :: IO ()
 main = do
@@ -15,4 +14,4 @@ main = do
     -- If Left, error. If Right, success
     case parseTree of
         Left _ -> putStrLn "ERROR"
-        Right prog -> putStr $ unpack $ strip $ pack $ runCompiler prog
+        Right prog -> putStr $ runCompiler prog
