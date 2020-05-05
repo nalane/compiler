@@ -6,8 +6,11 @@ module Compiler (
 
 import Control.Lens
 import Control.Monad
-import Types
 import Data.List
+import Data.Char
+
+import Types
+import IR
 
 data TableEntry = IntVar String | FloatVar String | StringVar String String
 instance Show TableEntry where
@@ -93,9 +96,16 @@ addEntry newVar = do
     let newTable = VarTable name (top ++ [newVar])
     let newStack = newTable : tail tables
 
+    code <- case newVar of
+        IntVar name -> return ("VAR " ++ name)
+        FloatVar name -> return ("VAR " ++ name)
+        StringVar name val -> return ("STR " ++ name ++ " " ++ val)
+
     if failed
         then compilerError ("DECLARATION ERROR " ++ newName)
-        else setState tableStack newStack
+        else do
+            setState tableStack newStack
+            addIr code
 
 getEntry :: String -> Compiler TableEntry
 getEntry name = getState tableStack >>= worker where
@@ -121,7 +131,8 @@ newTemp :: Compiler String
 newTemp = do
     count <- getState tempCount
     setState tempCount (count + 1)
-    return ("T" ++ (show count))
+    let name = "T" ++ (show count)
+    return name
 
 addBlock :: Compiler ()
 addBlock = do
@@ -152,12 +163,12 @@ blockHelper decls stmts = do
     removeTable
 
 factHelper :: Factor -> Compiler TableEntry
-factHelper (FactLeaf pf) = do
+factHelper (FactLeaf pf) =
     case pf of
         (ParenExpr expr) -> exprHelper expr
-        (Identifier (ParseToken _ name)) -> getEntry name
         (FloatLiteral (ParseToken _ val)) -> return $ FloatVar val
         (IntLiteral (ParseToken _ val)) -> return $ IntVar val
+        (Identifier (ParseToken _ name)) -> getEntry name
         _ -> compilerError "Func calls undefined"
 factHelper (FactNode l op r) = do 
     lEntry <- factHelper l
@@ -171,7 +182,7 @@ factHelper (FactNode l op r) = do
     tmp <- newTemp
 
     let fullOp = opName ++ t
-    addIr $ intercalate " " [fullOp, entryName lEntry, entryName rEntry, tmp]
+    addIr $ unwords [fullOp, entryName lEntry, entryName rEntry, tmp]
 
     case t of
         "I" -> return $ IntVar tmp
@@ -191,7 +202,7 @@ exprHelper (ExprNode l op r) = do
     tmp <- newTemp
 
     let fullOp = opName ++ t
-    addIr $ intercalate " " [fullOp, entryName lEntry, entryName rEntry, tmp]
+    addIr $ unwords [fullOp, entryName lEntry, entryName rEntry, tmp]
 
     case t of
         "I" -> return $ IntVar tmp
@@ -209,11 +220,23 @@ instance Compilable ElseStatement where
     compile (ElseStatement decls stmts) = blockHelper decls stmts
 
 instance Compilable Statement where
-    compile (AssignStatement (ParseToken t resName) expr) = do
-        tmp <- exprHelper expr
-        case tmp of
-            (IntVar tmpName) -> addIr ("STOREI " ++ tmpName ++ " " ++ resName)
-            (FloatVar tmpName) -> addIr ("STOREF " ++ tmpName ++ " " ++ resName)
+    compile (AssignStatement (ParseToken t lhsName) expr) = do
+        res <- exprHelper expr
+        let resName = entryName res
+        let firstChar = head $ entryName res
+        if isDigit firstChar || firstChar == '.' || (head resName == 'T' && all isDigit (tail resName)) then
+            case res of
+                (IntVar tmpName) -> addIr ("STOREI " ++ tmpName ++ " " ++ lhsName)
+                (FloatVar tmpName) -> addIr ("STOREF " ++ tmpName ++ " " ++ lhsName)
+        else do
+            tmpName <- newTemp
+            case res of
+                (IntVar resName) -> do
+                    addIr ("STOREI " ++ resName ++ " " ++ tmpName)
+                    addIr ("STOREI " ++ tmpName ++ " " ++ lhsName)
+                (FloatVar resName) -> do
+                    addIr ("STOREF " ++ resName ++ " " ++ tmpName)
+                    addIr ("STOREF " ++ tmpName ++ " " ++ lhsName)
 
     compile (ReadStatement tokens) =
         forM_ tokens $ \(ParseToken _ name) -> do
@@ -261,4 +284,5 @@ instance Compilable Program where
     compile (Program _ prgBody) = do
         compile prgBody
         intermediate <- getState ir
-        setState output $ intercalate "\n" intermediate
+
+        mapM_ (\code -> mapM_ addOutput $ translateIR code) intermediate

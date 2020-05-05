@@ -34,15 +34,15 @@ varDecl = do
         "INT" -> map IntDeclaration l
 
 decl :: Parser [Declaration]
-decl = try parseStringDecl <|> try parseVarDecl <|> return [] where
-    parseStringDecl = do
-        s <- stringDecl
-        d <- decl
-        return (s:d)
-    parseVarDecl = do
-        v <- varDecl
-        d <- decl
-        return (v ++ d)
+decl = worker [] where
+    worker list = 
+        try (do
+            s <- stringDecl
+            worker (list ++ [s])) <|>
+        try (do
+            v <- varDecl
+            worker (list ++ v)) <|>
+        return list
 
 anyType :: Parser ParseToken
 anyType = try varType <|> keyword "VOID"
@@ -84,9 +84,10 @@ factor :: Parser Factor
 factor = do
     post <- postfixExpr
     worker $ FactLeaf post where
-        worker tree = try (do
+        worker left = try (do
             m <- mulOp
-            FactNode tree m <$> factor) <|> return tree
+            right <- postfixExpr
+            worker $ FactNode left m $ FactLeaf right) <|> return left
 
 addOp :: Parser AddOp
 addOp = try (operator "+" >> return Plus) <|> (operator "-" >> return Minus) 
@@ -95,9 +96,10 @@ expr :: Parser Expression
 expr = do
     f <- factor
     worker $ ExprLeaf f where
-        worker tree = try (do
+        worker left = try (do
             a <- addOp
-            ExprNode tree a <$> expr) <|> return tree
+            right <- factor
+            worker $ ExprNode left a $ ExprLeaf right) <|> return left
 
 assignExpr :: Parser Statement
 assignExpr = do
@@ -176,11 +178,10 @@ stmt :: Parser Statement
 stmt = try baseStmt <|> try ifStmt <|> whileStmt
 
 stmtList :: Parser [Statement]
-stmtList = try parseStmtList <|> return [] where
-    parseStmtList = do
+stmtList = worker [] where
+    worker list = try (do
         s <- stmt
-        rest <- stmtList
-        return (s:rest)
+        worker (list ++ [s])) <|> return list
 
 funcBody :: Parser FuncBody
 funcBody = do
@@ -199,11 +200,10 @@ funcDecl = do
     return $ FuncDeclaration t name ps f
 
 funcDeclarations :: Parser [FuncDeclaration]
-funcDeclarations = try parseFuncDeclarations <|> return [] where
-    parseFuncDeclarations = do
+funcDeclarations = worker [] where
+    worker list = try (do
         f <- funcDecl
-        d <- funcDeclarations
-        return (f:d)
+        worker (list ++ [f])) <|> return list
 
 pgmBody :: Parser ProgramBody
 pgmBody = do

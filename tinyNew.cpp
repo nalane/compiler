@@ -3,6 +3,7 @@
 #include <string>
 #include <fstream>
 #include <iostream>
+#include <algorithm>
 #include <stdlib.h>
 
 using namespace std;
@@ -97,7 +98,7 @@ enum optype {var,str, label, move, addi,addr, subi,subr, muli,mulr, divi,divr,
              // all jumps must be between jsr..jne 
 	     sys, endofprogram, emptyline, unknown };
 	}
-enum operandtype {id,stackref,reg,num,strval,empty,nonknown};
+enum operandtype {id,stackref,reg,num,strval,empty1,nonknown};
 enum syscalls {SCreadi,SCreadr,SCwritei,SCwriter,SCwrites,SChalt,SCunknown};
 
 
@@ -308,7 +309,7 @@ public:
     case reg: {cout<<"reg"<<registernumber;break;}
     case num: {cout<<"num:"<<literalvalue;break;}
     case strval: {cout<<"str:"<<opname;break;}
-    case empty: {if (debug>=4) cout<<"emptyop"; break;}
+    case empty1: {if (debug>=4) cout<<"emptyop"; break;}
     case nonknown: {cout<<"unknownop";break;}
     }
   }
@@ -399,8 +400,8 @@ int isRegister(char * s, int& regno) {
 }
 
 void parseline(opcodes::optype & code, operand& op1, operand& op2, ifstream & src, int line) {
-  op1.settype(empty);
-  op2.settype(empty);
+  op1.settype(empty1);
+  op2.settype(empty1);
 
   if (src.eof()) {code=opcodes::endofprogram; return;}
   string _str;
@@ -585,7 +586,7 @@ int main(int argc, char *argv[]){
       case opcodes::var:  {
 	passert(declarations||mix,"declarations must preceed all code"); 
 	passert(op1.type()==id,"identifier operand expected"); 
-	passert(op2.type()==empty,"only one operand expected"); 
+	passert(op2.type()==empty1,"only one operand expected"); 
 	symboltable.push_back(Symbol(op1.name())); break;
       }
       case opcodes::str :  {
@@ -597,7 +598,7 @@ int main(int argc, char *argv[]){
       }
       case opcodes::label : {
 	passert(op1.type()==id,"1st operand must be indentifier"); 
-	passert(op2.type()==empty,"only one operand expected"); 
+	passert(op2.type()==empty1,"only one operand expected"); 
 	//	labeltab.push_back(op1.name());  // may not need this
         declarations = false;
 	program.push_back(opcode(opcodes::label,op1,op2));
@@ -618,7 +619,7 @@ int main(int argc, char *argv[]){
       case opcodes::inci: 
       case opcodes::deci: {
 	passert(op1.type()==reg,"operand must be a register"); 
-	passert(op2.type()==empty,"only one operand expected"); 
+	passert(op2.type()==empty1,"only one operand expected"); 
         declarations = false;
 	program.push_back(opcode(code,op1,op2)); 
 	break;
@@ -641,44 +642,44 @@ int main(int argc, char *argv[]){
 	break;
       }
       case opcodes::push: {
-	passert(op2.type()==empty,"zero or one operand expected"); 
+	passert(op2.type()==empty1,"zero or one operand expected"); 
 	passert(op1.type()==num || op1.type()==reg || op1.type()== id
-		|| op1.type()== stackref || op1.type()==empty ,
+		|| op1.type()== stackref || op1.type()==empty1 ,
 		"illegal operand type"); 
 	program.push_back(opcode(code,op1,op2));
         declarations = false;
 	break;
       }
       case opcodes::pop:{
-	passert(op2.type()==empty,"zero or one operand expected"); 
+	passert(op2.type()==empty1,"zero or one operand expected"); 
 	passert(op1.type()==reg || op1.type()== id || 
-		op1.type()==stackref ||op1.type()==empty, 
+		op1.type()==stackref ||op1.type()==empty1, 
 		"illegal operand type"); 
 	program.push_back(opcode(code,op1,op2));
         declarations = false;
 	break;
       }
       case opcodes::jsr: {
-	passert(op2.type()==empty,"only one operand expected"); 
+	passert(op2.type()==empty1,"only one operand expected"); 
 	passert(op1.type()==id,"operand must be an identifier"); 
 	program.push_back(opcode(code,op1,op2));
         declarations = false;
 	break;
       }
       case opcodes::ret: {
-	passert(op1.type()==empty && op2.type()==empty,"no operand expected"); 
+	passert(op1.type()==empty1 && op2.type()==empty1,"no operand expected"); 
 	program.push_back(opcode(code,op1,op2));
         declarations = false;
 	break;
       }
       case opcodes::link: {
-	passert(op1.type()==num && op2.type()==empty,"illegal operand"); 
+	passert(op1.type()==num && op2.type()==empty1,"illegal operand"); 
 	program.push_back(opcode(code,op1,op2));
         declarations = false;
 	break;
       }
       case opcodes::unlnk: {
-	passert(op1.type()==empty && op2.type()==empty,"no operand expected"); 
+	passert(op1.type()==empty1 && op2.type()==empty1,"no operand expected"); 
 	program.push_back(opcode(code,op1,op2));
         declarations = false;
 	break;
@@ -691,7 +692,7 @@ int main(int argc, char *argv[]){
       case opcodes::jne:
       case opcodes::jeq: {
 	passert(op1.type()==id,"operand must be an identifier"); 
-	passert(op2.type()==empty,"only one operand expected"); 
+	passert(op2.type()==empty1,"only one operand expected"); 
         declarations = false;
 	program.push_back(opcode(code,op1,op2));
 	break;
@@ -700,7 +701,7 @@ int main(int argc, char *argv[]){
         syscalls scl = checksyscall(op1);
 	passert(scl != SCunknown,"unknown system call");
 	if (scl == SChalt) {
-	  passert(op2.type()==empty,"only one operand expected");
+	  passert(op2.type()==empty1,"only one operand expected");
 	} 
 	// operand types are not fully checked
         declarations = false;
@@ -1285,7 +1286,7 @@ int main(int argc, char *argv[]){
     case opcodes::cmpi       : {cpu.setstatusi(pc->o1().ival(),pc->o2().ival());  pc++; break;}
     case opcodes::cmpr       : {cpu.setstatusr(pc->o1().rval(),pc->o2().rval());  pc++; break;}
     case opcodes::push: {
-      if (pc->o1().type() != empty) 
+      if (pc->o1().type() != empty1) 
 	stack.push_back(StackElement(pc->o1().ival(),pc->o1().rval()));
       else
 	stack.push_back(StackElement(0,0));
@@ -1293,7 +1294,7 @@ int main(int argc, char *argv[]){
       break;
     }
     case opcodes::pop: {
-      if (pc->o1().type() != empty) {
+      if (pc->o1().type() != empty1) {
 	pc->o1().setival(stack.back().ival());
 	pc->o1().setrval(stack.back().rval());
       }
